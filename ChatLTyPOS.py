@@ -1,99 +1,44 @@
-# ============================================
-# CHATNICO GUI - INTERFAZ GRÁFICA OPTIMIZADA
-# ============================================
-# Requisitos de instalación:
-# pip install nltk spacy tkinter
-# python -m spacy download es_core_news_sm
-
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 import threading
 import time
 import sys
 
-# Verificar si las librerías están disponibles
-def verificar_dependencias():
-    """Verificar que todas las dependencias estén instaladas"""
-    dependencias_faltantes = []
-    
-    try:
-        import nltk
-    except ImportError:
-        dependencias_faltantes.append("nltk")
-    
-    try:
-        import spacy
-    except ImportError:
-        dependencias_faltantes.append("spacy")
-    
-    if dependencias_faltantes:
-        mensaje = f"Faltan dependencias: {', '.join(dependencias_faltantes)}\n"
-        mensaje += "Por favor instala con: pip install " + " ".join(dependencias_faltantes)
-        print(mensaje)
-        return False
-    
-    return True
-
-# Verificar dependencias antes de continuar
-if not verificar_dependencias():
-    print("❌ No se pueden cargar las dependencias necesarias")
-    print("📦 Ejecuta: pip install nltk spacy")
-    print("🌐 Después: python -m spacy download es_core_news_sm")
+try:
+    import nltk
+    from nltk.tokenize import word_tokenize
+    from nltk.stem import WordNetLemmatizer
+    import spacy
+except ImportError as e:
+    print("❌ Error al importar dependencias:", str(e))
+    print("📦 Por favor instala las dependencias con:")
+    print("   pip install nltk spacy")
+    print("   python -m spacy download es_core_news_sm")
     sys.exit(1)
 
-# Ahora sí importamos las librerías
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-import spacy
-
-# ============================================
-# CONFIGURACIÓN INICIAL DE NLTK
-# ============================================
 def configurar_nltk():
-    """Descargar recursos de NLTK necesarios"""
-    recursos = ['punkt', 'wordnet', 'omw-1.4']
-    for recurso in recursos:
-        try:
-            nltk.download(recurso, quiet=True)
-        except Exception as e:
-            print(f"⚠️ No se pudo descargar {recurso}: {e}")
-
-# ============================================
-# CONFIGURACIÓN DE MODELOS
-# ============================================
-def inicializar_modelos():
-    """Inicializar los modelos de procesamiento de texto"""
+    """Configura los recursos necesarios de NLTK"""
     try:
-        # Configurar NLTK
-        configurar_nltk()
-        lemmatizer = WordNetLemmatizer()
-        
-        # Configurar spaCy
-        try:
-            pln = spacy.load("es_core_news_sm")
-        except OSError:
-            print("⚠️ Modelo de spaCy no encontrado. Ejecuta:")
-            print("python -m spacy download es_core_news_sm")
-            pln = None
-        
-        return lemmatizer, pln
-    
+        nltk.download('punkt', quiet=True)
+        nltk.download('wordnet', quiet=True)
+        nltk.download('omw-1.4', quiet=True)
     except Exception as e:
-        print(f"❌ Error al inicializar modelos: {e}")
-        return None, None
+        print(f"⚠️ Error al configurar NLTK: {e}")
 
-# ============================================
-# FUNCIONES DE PROCESAMIENTO DE TEXTO
-# ============================================
+def inicializar_modelos():
+    """Inicializa los modelos de procesamiento de texto"""
+    configurar_nltk()
+    try:
+        return WordNetLemmatizer(), spacy.load("es_core_news_sm")
+    except OSError:
+        print("⚠️ Modelo de spaCy no encontrado. Ejecuta:")
+        print("   python -m spacy download es_core_news_sm")
+        return WordNetLemmatizer(), None
+
 def tokenizar_nltk(texto):
-    """
-    Tokeniza un texto usando NLTK
-    Args:
-        texto (str): Texto a tokenizar
-    Returns:
-        list: Lista de tokens
-    """
+
+    ## Tokeniza un texto usando NLTK
+
     try:
         return word_tokenize(texto.lower())
     except Exception as e:
@@ -101,14 +46,9 @@ def tokenizar_nltk(texto):
         return []
 
 def lematizar_nltk(texto, lemmatizer):
-    """
-    Lematiza un texto usando NLTK
-    Args:
-        texto (str): Texto a lematizar
-        lemmatizer: Objeto lematizador de NLTK
-    Returns:
-        list: Lista de lemas
-    """
+    
+    ## Lematiza un texto usando NLTK
+    
     try:
         tokens = word_tokenize(texto.lower())
         return [lemmatizer.lemmatize(token) for token in tokens]
@@ -117,14 +57,9 @@ def lematizar_nltk(texto, lemmatizer):
         return []
 
 def lematizar_spacy(texto, pln):
-    """
-    Lematiza un texto usando spaCy con información morfológica
-    Args:
-        texto (str): Texto a lematizar
-        pln: Modelo de spaCy cargado
-    Returns:
-        list: Lista de tuplas (token, lema, pos)
-    """
+    
+    ## Lematiza un texto usando spaCy con información morfológica
+    
     try:
         if pln is None:
             return [("Error: spaCy no disponible", "", "")]
@@ -135,9 +70,9 @@ def lematizar_spacy(texto, pln):
         print(f"Error en lematización spaCy: {e}")
         return []
 
-# ============================================
+
 # CLASE PRINCIPAL DE LA INTERFAZ GRÁFICA
-# ============================================
+
 class ChatNicoGUI:
     """
     Clase principal que maneja la interfaz gráfica de ChatNico
