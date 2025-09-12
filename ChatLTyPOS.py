@@ -3,99 +3,34 @@ from tkinter import ttk, scrolledtext, messagebox
 import threading
 import time
 import sys
+from golf_assistant import GolfAssistant
 
-try:
-    import nltk
-    from nltk.tokenize import word_tokenize
-    from nltk.stem import WordNetLemmatizer
-    import spacy
-except ImportError as e:
-    print("❌ Error al importar dependencias:", str(e))
-    print("📦 Por favor instala las dependencias con:")
-    print("   pip install nltk spacy")
-    print("   python -m spacy download es_core_news_sm")
-    sys.exit(1)
-
-def configurar_nltk():
-    """Configura los recursos necesarios de NLTK"""
-    try:
-        nltk.download('punkt', quiet=True)
-        nltk.download('wordnet', quiet=True)
-        nltk.download('omw-1.4', quiet=True)
-    except Exception as e:
-        print(f"⚠️ Error al configurar NLTK: {e}")
-
-def inicializar_modelos():
-    """Inicializa los modelos de procesamiento de texto"""
-    configurar_nltk()
-    try:
-        return WordNetLemmatizer(), spacy.load("es_core_news_sm")
-    except OSError:
-        print("⚠️ Modelo de spaCy no encontrado. Ejecuta:")
-        print("   python -m spacy download es_core_news_sm")
-        return WordNetLemmatizer(), None
-
-def tokenizar_nltk(texto):
-
-    ## Tokeniza un texto usando NLTK
-
-    try:
-        return word_tokenize(texto.lower())
-    except Exception as e:
-        print(f"Error en tokenización: {e}")
-        return []
-
-def lematizar_nltk(texto, lemmatizer):
-    
-    ## Lematiza un texto usando NLTK
-    
-    try:
-        tokens = word_tokenize(texto.lower())
-        return [lemmatizer.lemmatize(token) for token in tokens]
-    except Exception as e:
-        print(f"Error en lematización NLTK: {e}")
-        return []
-
-def lematizar_spacy(texto, pln):
-    
-    ## Lematiza un texto usando spaCy con información morfológica
-    
-    try:
-        if pln is None:
-            return [("Error: spaCy no disponible", "", "")]
-        
-        doc = pln(texto)
-        return [(token.text, token.lemma_, token.pos_) for token in doc]
-    except Exception as e:
-        print(f"Error en lematización spaCy: {e}")
-        return []
-
-
+# ============================================
 # CLASE PRINCIPAL DE LA INTERFAZ GRÁFICA
+# ============================================
 
 class ChatNicoGUI:
     """
-    Clase principal que maneja la interfaz gráfica de ChatNico
+    Clase principal que maneja la interfaz gráfica del Asistente de Golf
     """
     
     def __init__(self):
         """Inicializar la aplicación"""
         # Variables de estado del chat
         self.saludado = False
-        self.esperando_frase = None
         
-        # Inicializar modelos de procesamiento
-        self.lemmatizer, self.pln = inicializar_modelos()
+        # Inicializar el asistente de golf
+        self.assistant = GolfAssistant()
         
         # Configurar ventana principal
         self.root = tk.Tk()
-        self.root.title("🤖 ChatNico - Procesador de Lenguaje Natural")
+        self.root.title("🏌️ Asistente de Golf para Principiantes")
         self.root.geometry("950x750")
         self.root.minsize(800, 600)
         
         # Definir paleta de colores
         self.colores = {
-            'bg_principal': '#f5f5dc',        # Beige claro
+            'bg_principal': '#e8f5e9',        # Verde muy claro
             'verde_pastel': '#81c784',        # Verde pastel mejorado
             'verde_oscuro': '#4caf50',        # Verde más vibrante
             'cafe_claro': '#d7ccc8',          # Café claro
@@ -172,7 +107,7 @@ class ChatNicoGUI:
         # Subtítulo
         subtitle_label = tk.Label(
             header_frame,
-            text="Procesamiento de Lenguaje Natural con NLTK y spaCy",
+            text="________________________________",
             font=('Segoe UI', 12),
             bg=self.colores['verde_pastel'],
             fg='white'
@@ -326,19 +261,21 @@ class ChatNicoGUI:
         self.chat_area.see(tk.END)
     
     def mostrar_mensaje_inicial(self):
-        """Mostrar el mensaje de bienvenida"""
-        mensaje = """¡Bienvenido a ChatNico! 👋
+        """Mostrar el mensaje de bienvenida del asistente de golf"""
+        mensaje = """🏌️‍♂️ ¡Bienvenido a tu Asistente de Golf Personal! ⛳
 
-Soy tu asistente para procesamiento de lenguaje natural. Para comenzar, salúdame primero.
+Estoy aquí para ayudarte a elegir el palo adecuado para tu siguiente golpe. 
 
-Después podrás usar estos comandos:
-• 'tokeniza con nltk' - Separar texto en tokens individuales
-• 'lematiza con nltk' - Encontrar la raíz de las palabras (NLTK)
-• 'lematiza con spacy' - Análisis morfológico completo (spaCy)
+Puedes contarme tu situación de juego de forma natural, por ejemplo:
+• "Estoy a 150 yardas en el fairway"
+• "Tengo 90 yardas hasta el green con viento en contra"
+• "Estoy en el rough a 120 yardas"
+• "Estoy en el bunker a 60 yardas"
+• "El green está más alto que mi posición actual"
 
-Escribe 'salir', 'adiós' o 'chao' cuando quieras terminar."""
+¡Simplemente salúdame para comenzar! 😊"""
         
-        self.agregar_mensaje(mensaje)
+        self.agregar_mensaje(mensaje, 'sistema')
     
     def actualizar_status(self, texto):
         """Actualizar el mensaje en la barra de estado"""
@@ -366,119 +303,55 @@ Escribe 'salir', 'adiós' o 'chao' cuando quieras terminar."""
     
     def procesar_mensaje(self, mensaje):
         """
-        Procesar el mensaje del usuario y generar respuesta
+        Procesar el mensaje del usuario y generar una recomendación de golf
         Args:
-            mensaje (str): Mensaje del usuario en minúsculas
+            mensaje (str): Mensaje del usuario
         """
+        # Actualizar estado
+        self.actualizar_status("⛳ Analizando tu situación de juego...")
         
-        # Mostrar que estamos procesando
-        self.actualizar_status("🔄 ChatNico está procesando...")
-        time.sleep(0.8)  # Simular tiempo de procesamiento
-        
-        # Comandos para salir
-        comandos_salir = ["salir", "adiós", "adios", "chao", "exit", "quit", "bye"]
-        if any(cmd in mensaje for cmd in comandos_salir):
-            self.agregar_mensaje("¡Hasta luego! 👋 Gracias por usar ChatNico. La aplicación se cerrará en 3 segundos.")
-            self.actualizar_status("❌ Cerrando aplicación...")
-            self.root.after(3000, self.cerrar_aplicacion)
-            return
-        
-        # Si estamos esperando una frase para procesar
-        if self.esperando_frase:
-            self.procesar_texto_usuario(mensaje)
-            return
-        
-        # Verificar si ya saludó
-        if not self.saludado:
-            saludos = ["hola", "buenas", "qué tal", "que tal", "hey", "buenos días", "buenos dias", 
-                      "buenas tardes", "buenas noches", "saludos"]
-            
-            if any(saludo in mensaje for saludo in saludos):
-                self.agregar_mensaje("¡Hola! ¿Cómo estás? 😊 Ahora ya puedes usar mis funciones de procesamiento de texto.")
-                self.saludado = True
-            else:
-                self.agregar_mensaje("¡Hey! Primero salúdame y después podremos trabajar juntos. 😊")
-            
-            self.actualizar_status("🟢 ChatNico listo para procesar texto")
-            return
-        
-        # Detectar qué tipo de procesamiento quiere el usuario
-        if "tokeniza con nltk" in mensaje or "tokenizar nltk" in mensaje:
-            self.esperando_frase = 'tokenize_nltk'
-            self.agregar_mensaje("Perfecto! 🔤 Dame la oración o texto que quieres tokenizar:")
-            
-        elif "lematiza con nltk" in mensaje or "lematizar nltk" in mensaje:
-            self.esperando_frase = 'lemmatize_nltk'
-            self.agregar_mensaje("Excelente! 🌿 Dame la oración que quieres lematizar usando NLTK:")
-            
-        elif "lematiza con spacy" in mensaje or "lematizar spacy" in mensaje:
-            if self.pln is None:
-                self.agregar_mensaje("❌ Lo siento, spaCy no está disponible. Instala el modelo con:\npython -m spacy download es_core_news_sm")
-            else:
-                self.esperando_frase = 'lemmatize_spacy'
-                self.agregar_mensaje("Genial! 🔬 Dame la oración para análisis morfológico con spaCy:")
+        try:
+            # Comandos de salida
+            saludos_despedida = ['salir', 'adiós', 'adios', 'chao', 'hasta luego', 'gracias', 'bye']
+            if any(saludo in mensaje.lower() for saludo in saludos_despedida):
+                self.agregar_mensaje("¡Hasta luego! Que tengas un excelente juego. ¡Swing fácil! 🏌️‍♂️")
+                if 'salir' in mensaje.lower() or 'chao' in mensaje.lower() or 'bye' in mensaje.lower():
+                    self.root.after(1000, self.cerrar_aplicacion)
+                return
                 
-        else:
-            # Mensaje de ayuda
-            ayuda = """No entendí tu solicitud. 🤔 
+            # Si es un saludo inicial
+            if not self.saludado:
+                if any(palabra in mensaje.lower() for palabra in ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'holi']):
+                    self.saludado = True
+                    self.agregar_mensaje("¡Hola! Soy tu asistente de golf personal. Estoy aquí para ayudarte a elegir el palo adecuado para tu siguiente golpe.\n\nPuedes decirme cosas como:\n• 'Estoy a 150 yardas del hoyo en el fairway'\n• 'Tengo 90 yardas hasta el green con viento en contra'\n• 'Estoy en el rough a 120 yardas'")
+                else:
+                    self.agregar_mensaje("¡Hola! Soy tu asistente de golf. Por favor, cuéntame en qué situación de juego te encuentras. 😊")
+                return
+                
+            # Procesar la entrada con el asistente de golf
+            respuesta = self.assistant.process_input(mensaje)
+            self.agregar_mensaje(respuesta)
+                
+        except Exception as e:
+            self.agregar_mensaje(f"❌ Lo siento, hubo un error al procesar tu consulta. Asegúrate de incluir la distancia y el terreno.\n\nEjemplo: 'Estoy a 150 yardas en el fairway'")
+            print(f"Error: {str(e)}")
             
-Los comandos disponibles son:
-• 'tokeniza con nltk' - Para separar texto en tokens
-• 'lematiza con nltk' - Para lematización básica  
-• 'lematiza con spacy' - Para análisis morfológico completo
-
-¿Cuál te gustaría probar?"""
-            self.agregar_mensaje(ayuda)
-        
-        self.actualizar_status("🟢 ChatNico listo para procesar texto")
+        finally:
+            self.actualizar_status("🟢 Listo para ayudarte")
     
     def procesar_texto_usuario(self, texto):
         """
-        Procesar el texto que el usuario quiere analizar
+        Procesar la entrada del usuario para recomendaciones de golf
         Args:
             texto (str): Texto a procesar
         """
-        
-        self.actualizar_status("⚙️ Procesando texto...")
-        time.sleep(1.2)  # Simular procesamiento
+        self.actualizar_status("⛳ Analizando tu situación de juego...")
+        time.sleep(0.5)  # Pequeña pausa para feedback visual
         
         try:
-            if self.esperando_frase == 'tokenize_nltk':
-                # Tokenización con NLTK
-                tokens = tokenizar_nltk(texto)
-                if tokens:
-                    resultados = [f"{token:15} (posición {i+1})" for i, token in enumerate(tokens)]
-                    self.agregar_mensaje(
-                        f"✅ Tokenización completada para: '{texto}'",
-                        resultados=resultados
-                    )
-                else:
-                    self.agregar_mensaje("❌ No se pudieron obtener tokens del texto.")
-                    
-            elif self.esperando_frase == 'lemmatize_nltk':
-                # Lematización con NLTK
-                lemas = lematizar_nltk(texto, self.lemmatizer)
-                if lemas:
-                    resultados = [f"{lema:15} (forma base)" for lema in lemas]
-                    self.agregar_mensaje(
-                        f"✅ Lematización NLTK completada para: '{texto}'",
-                        resultados=resultados
-                    )
-                else:
-                    self.agregar_mensaje("❌ No se pudieron obtener lemas del texto.")
-                    
-            elif self.esperando_frase == 'lemmatize_spacy':
-                # Lematización con spaCy
-                analisis = lematizar_spacy(texto, self.pln)
-                if analisis and analisis[0][0] != "Error: spaCy no disponible":
-                    resultados = [f"{palabra:12} → {lema:12} [{pos}]" 
-                                for palabra, lema, pos in analisis]
-                    self.agregar_mensaje(
-                        f"✅ Análisis morfológico spaCy completado para: '{texto}'",
-                        resultados=resultados
-                    )
-                else:
-                    self.agregar_mensaje("❌ Error en el análisis con spaCy.")
+            # Procesar la entrada con el asistente de golf
+            respuesta = self.assistant.process_input(texto)
+            self.agregar_mensaje(respuesta)
         
         except Exception as e:
             self.agregar_mensaje(f"❌ Error inesperado: {str(e)}")
@@ -486,7 +359,7 @@ Los comandos disponibles son:
         
         # Resetear estado
         self.esperando_frase = None
-        self.actualizar_status("🟢 ChatNico listo para procesar texto")
+        self.actualizar_status("🟢 Asistente de Golf listo para ayudarte")
     
     def cerrar_aplicacion(self):
         """Cerrar la aplicación de forma segura"""
@@ -499,34 +372,31 @@ Los comandos disponibles son:
     def iniciar(self):
         """Iniciar la aplicación GUI"""
         try:
-            print("🚀 Iniciando ChatNico...")
+            print("🚀 Iniciando Asistente de Golf...")
+            print("✅ Interfaz gráfica lista")
+            print("\n🟢 ¡El Asistente de Golf está listo para ayudarte!")
+            print("   Escribe 'salir' para terminar el programa.\n")
             
-            # Verificar que los modelos se cargaron correctamente
-            if self.lemmatizer is None:
-                messagebox.showwarning("Advertencia", 
-                                     "NLTK no está completamente configurado.\nAlgunas funciones podrían no funcionar.")
-            
-            if self.pln is None:
-                messagebox.showinfo("Información", 
-                                  "spaCy no está disponible.\nSolo funcionará NLTK.\n\nPara habilitar spaCy:\npython -m spacy download es_core_news_sm")
-            
-            # Iniciar el loop principal
+            # Iniciar el bucle principal
             self.root.mainloop()
             
-        except KeyboardInterrupt:
-            print("\n👋 Cerrando ChatNico...")
-            self.cerrar_aplicacion()
         except Exception as e:
             print(f"❌ Error crítico: {e}")
-            messagebox.showerror("Error", f"Error crítico en la aplicación:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Ocurrió un error inesperado: {e}")
+        finally:
+            print("\n👋 ¡Hasta luego! Que tengas un excelente juego. ⛳")
+            if hasattr(self, 'root'):
+                self.root.destroy()
 
 # ============================================
 # PUNTO DE ENTRADA PRINCIPAL
 # ============================================
 def main():
-    """Función principal para ejecutar ChatNico"""
+    """Función principal para ejecutar Asistente de Golf"""
     print("=" * 50)
-    print("🤖 ChatNico - Procesador de Lenguaje Natural")
+    print("🏌️  Asistente de Golf para Principiantes")
     print("=" * 50)
     
     try:
