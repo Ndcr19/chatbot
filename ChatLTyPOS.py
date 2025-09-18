@@ -31,7 +31,7 @@ class ChatNicoGUI:
         # Definir paleta de colores
         self.colores = {
             'bg_principal': '#e8f5e9',        # Verde muy claro
-            'verde_pastel': '#81c784',        # Verde pastel mejorado
+            'verde_pastel': '#81c800',        # Verde pastel mejorado
             'verde_oscuro': '#4caf50',        # Verde más vibrante
             'cafe_claro': '#d7ccc8',          # Café claro
             'beige_oscuro': '#e8dcc6',        # Beige más oscuro
@@ -97,7 +97,7 @@ class ChatNicoGUI:
         # Título principal
         title_label = tk.Label(
             header_frame,
-            text="🤖 ChatNico",
+            text=" <:-)> ChatNico <:-)> ",
             font=('Segoe UI', 26, 'bold'),
             bg=self.colores['verde_pastel'],
             fg='white'
@@ -325,7 +325,7 @@ Puedes contarme tu situación de juego de forma natural, por ejemplo:
                     self.saludado = True
                     self.agregar_mensaje("¡Hola! Soy tu asistente de golf personal. Estoy aquí para ayudarte a elegir el palo adecuado para tu siguiente golpe.\n\nPuedes decirme cosas como:\n• 'Estoy a 150 yardas del hoyo en el fairway'\n• 'Tengo 90 yardas hasta el green con viento en contra'\n• 'Estoy en el rough a 120 yardas'")
                 else:
-                    self.agregar_mensaje("¡Hola! Soy tu asistente de golf. Por favor, cuéntame en qué situación de juego te encuentras. 😊")
+                    self.agregar_mensaje("¡Hola! Soy tu asistente de golf. Por favor, saludame y cuentame que necesitas. 😊")
                 return
                 
             # Procesar la entrada con el asistente de golf
